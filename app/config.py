@@ -2,11 +2,10 @@
 import os
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-PROJECT_ROOT = BASE_DIR.parent
+BASE_DIR = Path(__file__).resolve().parent.parent 
 UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "outputs"
-MODELS_DIR = PROJECT_ROOT / "models"
+MODELS_DIR = BASE_DIR / "models"  
 DB_PATH = BASE_DIR / "data" / "history.db"
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
 
@@ -34,3 +33,4 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 (BASE_DIR / "data").mkdir(parents=True, exist_ok=True)
+

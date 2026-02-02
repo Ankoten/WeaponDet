@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Детекция оружия | Weapon Detection</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0d1117;
+      --bg-card: #161b22;
+      --bg-hover: #21262d;
+      --accent: #58a6ff;
+      --accent-dim: #388bfd66;
+      --danger: #f85149;
+      --success: #3fb950;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --border: #30363d;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    .layout {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    h1::before {
+      content: '🛡️';
+    }
+    nav {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .btn {
+      font-family: inherit;
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent-dim);
+    }
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg-dark);
+    }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-danger { border-color: var(--danger); color: var(--danger); }
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+      margin-bottom: 1.5rem;
+      background: var(--bg-card);
+      padding: 4px;
+      border-radius: var(--radius);
+    }
+    .tab {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab.active { background: var(--accent); color: var(--bg-dark); font-weight: 500; }
+    .tab:not(.active):hover { color: var(--text); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg-card);
+    }
+    .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: var(--accent-dim); }
+    .upload-zone input { display: none; }
+    .camera-view {
+      width: 100%;
+      max-height: 400px;
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      position: relative;
+    }
+    .camera-view video, .camera-view canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .preview-area, .result-area {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      padding: 1rem;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    .preview-area img, .result-area img {
+      max-width: 100%;
+      max-height: 400px;
+      border-radius: 8px;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+    .process-btn {
+      width: 100%;
+      padding: 1rem;
+      font-size: 1rem;
+      margin-top: 1rem;
+    }
+    .stats-bar {
+      display: flex;
+      gap: 2rem;
+      padding: 1rem;
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+    .stat { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; }
+    .stat span { color: var(--accent); }
+    .detection-list {
+      list-style: none;
+      margin-top: 1rem;
+    }
+    .detection-list li {
+      padding: 0.5rem;
+      background: var(--bg-hover);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 2rem;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      max-width: 600px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 1.5rem;
+    }
+    .modal h2 { margin-bottom: 1rem; }
+    .history-item {
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .history-item:last-child { border-bottom: none; }
+    .loading { opacity: 0.6; pointer-events: none; }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-msg { color: var(--danger); padding: 0.5rem; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <header>
+      <h1>Детекция оружия</h1>
+      <nav>
+        <button class="btn" onclick="openHistory()">История</button>
+        <a class="btn" href="/api/export/json" download>JSON</a>
+        <a class="btn" href="/api/export/pdf" download>PDF</a>
+        <a class="btn" href="/api/export/excel" download>Excel</a>
+      </nav>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="image">Изображение</button>
+      <button class="tab" data-tab="video">Видео</button>
+      <button class="tab" data-tab="camera">Камера</button>
+    </div>
+
+    <div id="tab-image" class="panel active">
+      <div class="upload-zone" id="imageZone">
+        <input type="file" id="imageInput" accept="image/*">
+        <p>Перетащите изображение сюда или нажмите для выбора</p>
+        <p class="text-muted" style="margin-top:0.5rem;font-size:0.9rem;">JPG, PNG, BMP, WebP</p>
+      </div>
+    </div>
+
+    <div id="tab-video" class="panel">
+      <div class="upload-zone" id="videoZone">
+        <input type="file" id="videoInput" accept="video/*">
+        <p>Перетащите видео сюда или нажмите для выбора</p>
+        <p class="text-muted" style="margin-top:0.5rem;font-size:0.9rem;">MP4, AVI, MOV, WebM. Анализ: 1 кадр/сек, макс 60 кадров</p>
+      </div>
+    </div>
+
+    <div id="tab-camera" class="panel">
+      <div class="camera-view">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="captureCanvas" style="display:none"></canvas>
+      </div>
+      <button class="btn btn-danger" id="toggleCamera" style="margin-top:1rem">Остановить камеру</button>
+    </div>
+
+    <div class="grid-2" style="margin-top:1.5rem">
+      <div>
+        <h3 style="margin-bottom:0.5rem">Вход</h3>
+        <div class="preview-area" id="preview">
+          <p style="color:var(--text-muted)">Выберите источник и загрузите файл или включите камеру</p>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin-bottom:0.5rem">Результат</h3>
+        <div class="result-area" id="result">
+          <p style="color:var(--text-muted)">Результаты детекции появятся здесь</p>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary process-btn" id="processBtn" disabled>Начать обработку</button>
+
+    <div class="stats-bar" id="statsBar" style="display:none">
+      <span class="stat">Объектов: <span id="statCount">0</span></span>
+      <span class="stat">Время: <span id="statTime">0</span> мс</span>
+      <span class="stat" id="statVideo" style="display:none">Кадров: <span id="statFrames">0</span> / <span id="statFramesWith">0</span> с детекциями</span>
+    </div>
+  </div>
+
+  <div class="modal" id="historyModal">
+    <div class="modal-content">
+      <h2>История запросов</h2>
+      <div id="historyList"></div>
+      <button class="btn" style="margin-top:1rem" onclick="closeHistory()">Закрыть</button>
+    </div>
+  </div>
+
+  <script>
+    const preview = document.getElementById('preview');
+    const result = document.getElementById('result');
+    const processBtn = document.getElementById('processBtn');
+    const statsBar = document.getElementById('statsBar');
+    const video = document.getElementById('video');
+    const captureCanvas = document.getElementById('captureCanvas');
+
+    let currentSource = null;
+    let currentFile = null;
+    let stream = null;
+
+    document.querySelectorAll('.tab').forEach(t => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+        resetState();
+        if (t.dataset.tab === 'camera') startCamera();
+      });
+    });
+
+    function resetState() {
+      currentSource = null;
+      currentFile = null;
+      preview.innerHTML = '<p style="color:var(--text-muted)">Выберите источник</p>';
+      result.innerHTML = '<p style="color:var(--text-muted)">Результаты появятся здесь</p>';
+      processBtn.disabled = true;
+      statsBar.style.display = 'none';
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+        video.srcObject = null;
+      }
+    }
+
+    const imageZone = document.getElementById('imageZone');
+    const imageInput = document.getElementById('imageInput');
+    imageZone.addEventListener('click', () => imageInput.click());
+    imageZone.addEventListener('dragover', e => { e.preventDefault(); imageZone.classList.add('dragover'); });
+    imageZone.addEventListener('dragleave', () => imageZone.classList.remove('dragover'));
+    imageZone.addEventListener('drop', e => {
+      e.preventDefault();
+      imageZone.classList.remove('dragover');
+      const f = e.dataTransfer.files[0];
+      if (f && f.type.startsWith('image/')) {
+        handleImage(f);
+      }
+    });
+    imageInput.addEventListener('change', e => {
+      const f = e.target.files[0];
+      if (f) handleImage(f);
+    });
+
+    const videoZone = document.getElementById('videoZone');
+    const videoInput = document.getElementById('videoInput');
+    videoZone.addEventListener('click', () => videoInput.click());
+    videoZone.addEventListener('dragover', e => { e.preventDefault(); videoZone.classList.add('dragover'); });
+    videoZone.addEventListener('dragleave', () => videoZone.classList.remove('dragover'));
+    videoZone.addEventListener('drop', e => {
+      e.preventDefault();
+      videoZone.classList.remove('dragover');
+      const f = e.dataTransfer.files[0];
+      if (f && f.type.startsWith('video/')) handleVideo(f);
+    });
+    videoInput.addEventListener('change', e => {
+      const f = e.target.files[0];
+      if (f) handleVideo(f);
+    });
+
+    function handleImage(file) {
+      currentSource = 'image';
+      currentFile = file;
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      preview.innerHTML = '';
+      preview.appendChild(img);
+      processBtn.disabled = false;
+    }
+
+    function handleVideo(file) {
+      currentSource = 'video';
+      currentFile = file;
+      const v = document.createElement('video');
+      v.src = URL.createObjectURL(file);
+      v.controls = true;
+      v.style.maxWidth = '100%';
+      preview.innerHTML = '';
+      preview.appendChild(v);
+      processBtn.disabled = false;
+    }
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = stream;
+        video.style.display = 'block';
+        currentSource = 'camera';
+        processBtn.disabled = false;
+        document.getElementById('toggleCamera').textContent = 'Остановить камеру';
+      } catch (e) {
+        alert('Не удалось получить доступ к камере: ' + e.message);
+      }
+    }
+
+    document.getElementById('toggleCamera').addEventListener('click', () => {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+        video.srcObject = null;
+        video.style.display = 'none';
+        currentSource = null;
+        processBtn.disabled = true;
+        document.getElementById('toggleCamera').textContent = 'Включить камеру';
+      } else {
+        startCamera();
+      }
+    });
+
+    processBtn.addEventListener('click', async () => {
+      if (!currentSource) return;
+      processBtn.disabled = true;
+      processBtn.classList.add('loading');
+      processBtn.innerHTML = '<span class="spinner"></span> Обработка...';
+      result.innerHTML = '<p><span class="spinner"></span> Анализ...</p>';
+
+      try {
+        let res;
+        if (currentSource === 'image') {
+          const fd = new FormData();
+          fd.append('file', currentFile);
+          res = await fetch('/api/process/image', { method: 'POST', body: fd });
+        } else if (currentSource === 'video') {
+          const fd = new FormData();
+          fd.append('file', currentFile);
+          res = await fetch('/api/process/video', { method: 'POST', body: fd });
+        } else if (currentSource === 'camera') {
+          captureCanvas.width = video.videoWidth;
+          captureCanvas.height = video.videoHeight;
+          captureCanvas.getContext('2d').drawImage(video, 0, 0);
+          const blob = await new Promise(r => captureCanvas.toBlob(r, 'image/jpeg'));
+          const b64 = await blobToBase64(blob);
+          res = await fetch('/api/process/frame', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frame_b64: b64 })
+          });
+        }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Ошибка');
+        showResult(data);
+      } catch (e) {
+        result.innerHTML = `<p class="error-msg">Ошибка: ${e.message}</p>`;
+      }
+      processBtn.classList.remove('loading');
+      processBtn.innerHTML = 'Начать обработку';
+      processBtn.disabled = false;
+    });
+
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result.split(',')[1]);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+    }
+
+    function showResult(data) {
+      statsBar.style.display = 'flex';
+      document.getElementById('statCount').textContent = data.detections_count;
+      document.getElementById('statTime').textContent = data.processing_time_ms;
+
+      const statVideo = document.getElementById('statVideo');
+      if (data.processed_frames != null) {
+        statVideo.style.display = '';
+        document.getElementById('statFrames').textContent = data.processed_frames;
+        document.getElementById('statFramesWith').textContent = data.frames_with_detections ?? 0;
+      } else {
+        statVideo.style.display = 'none';
+      }
+
+      let html = '';
+      if (data.processed_frames != null) {
+        html += `<p class="video-summary" style="color:var(--accent);margin-bottom:0.75rem;font-size:0.9rem">
+          📹 Обработано <strong>${data.processed_frames}</strong> кадров из ${data.total_frames ?? '?'}
+          (1 кадр/сек). Оружие обнаружено в <strong>${data.frames_with_detections ?? 0}</strong> кадрах.
+        </p>`;
+      }
+      if (data.annotated_image_b64) {
+        const frameLabel = data.detections?.length ? 'Показан кадр с детекциями:' : 'Показан первый кадр видео:';
+        html += `<p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.5rem">${frameLabel}</p>`;
+        html += `<img src="data:image/jpeg;base64,${data.annotated_image_b64}" alt="Result">`;
+      }
+      if (data.detections && data.detections.length) {
+        html += '<ul class="detection-list" style="margin-top:1rem">';
+        const withFrame = data.detections.some(d => d.frame_no != null);
+        data.detections.forEach(d => {
+          const frameInfo = withFrame && d.time_sec != null ? ` (кадр ${d.time_sec}с)` : '';
+          html += `<li>${d.class}: ${(d.confidence * 100).toFixed(1)}%${frameInfo}</li>`;
+        });
+        html += '</ul>';
+      } else {
+        html += '<p style="color:var(--success);margin-top:0.5rem">Оружие не обнаружено</p>';
+      }
+      result.innerHTML = html;
+    }
+
+    async function openHistory() {
+      const modal = document.getElementById('historyModal');
+      modal.classList.add('active');
+      const list = document.getElementById('historyList');
+      list.innerHTML = '<p>Загрузка...</p>';
+      try {
+        const res = await fetch('/api/history');
+        const data = await res.json();
+        if (!data.history || data.history.length === 0) {
+          list.innerHTML = '<p style="color:var(--text-muted)">История пуста</p>';
+          return;
+        }
+        list.innerHTML = data.history.map(h => `
+          <div class="history-item">
+            <div>
+              <strong>${h.timestamp.replace('T', ' ').slice(0, 19)}</strong> — ${h.source}
+              ${h.filename ? ` (${h.filename})` : ''}
+            </div>
+            <span>Детекций: ${h.detections_count} | ${h.processing_time_ms} мс</span>
+          </div>
+        `).join('');
+      } catch (e) {
+        list.innerHTML = `<p class="error-msg">Ошибка: ${e.message}</p>`;
+      }
+    }
+
+    function closeHistory() {
+      document.getElementById('historyModal').classList.remove('active');
+    }
+  </script>
+</body>
+</html>
